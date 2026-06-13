@@ -279,10 +279,65 @@ async function deleteLead(id) {
   return result.rows[0] || null;
 }
 
+/**
+ * Get summary stats for dashboard dashboard.
+ */
+async function getLeadStats({ userId, userRole }) {
+  let whereClause = '';
+  const params = [];
+
+  if (userRole === 'agent') {
+    whereClause = 'WHERE assigned_to = $1';
+    params.push(userId);
+  }
+
+  // 1. Total count
+  const totalResult = await query(`SELECT COUNT(*) FROM leads ${whereClause}`, params);
+  const total = parseInt(totalResult.rows[0].count, 10);
+
+  // 2. Status grouping
+  const statusResult = await query(`
+    SELECT status, COUNT(*) as count 
+    FROM leads 
+    ${whereClause} 
+    GROUP BY status
+  `, params);
+
+  // 3. Source grouping
+  const sourceResult = await query(`
+    SELECT source, COUNT(*) as count 
+    FROM leads 
+    ${whereClause} 
+    GROUP BY source
+  `, params);
+
+  // 4. Agent workload (for Admins/Managers only)
+  let agentLoads = [];
+  if (userRole === 'manager' || userRole === 'admin') {
+    const agentsResult = await query(`
+      SELECT u.id, u.name, u.email, COUNT(l.id) AS active_leads_count
+      FROM users u
+      LEFT JOIN leads l ON u.id = l.assigned_to AND l.status NOT IN ('won', 'lost')
+      WHERE u.role = 'agent'
+      GROUP BY u.id
+      ORDER BY active_leads_count ASC, u.name ASC
+    `);
+    agentLoads = agentsResult.rows;
+  }
+
+  return {
+    total,
+    statusBreakdown: statusResult.rows,
+    sourceBreakdown: sourceResult.rows,
+    agentLoads
+  };
+}
+
 module.exports = {
   createLead,
   getLeadById,
   listLeads,
   updateLead,
-  deleteLead
+  deleteLead,
+  getLeadStats
 };

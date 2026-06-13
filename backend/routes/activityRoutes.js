@@ -28,6 +28,6 @@ router.use(authenticateToken);
  *       403:
  *         description: Forbidden (Agents cannot view global activities)
  */
-router.get('/', authorizeRoles('admin', 'manager'), activityController.getRecentActivities);
+router.get('/', activityController.getRecentActivities);
 
 module.exports = router;

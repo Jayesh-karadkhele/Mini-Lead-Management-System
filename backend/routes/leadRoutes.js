@@ -187,6 +187,20 @@ router.get('/', leadController.listLeads);
  *       404:
  *         description: Lead not found
  */
+/**
+ * @openapi
+ * /api/leads/stats:
+ *   get:
+ *     summary: Retrieve aggregate statistics and agent loads (Admins & Managers see global stats, Agents see their own metrics)
+ *     tags: [Leads]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Summary metrics for dashboard dashboard
+ */
+router.get('/stats', leadController.getLeadStats);
+
 router.get('/:id', leadController.getLeadById);
 router.get('/:id/activities', leadController.getLeadActivities);
 router.put('/:id', leadController.updateLead);

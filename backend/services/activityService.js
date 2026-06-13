@@ -37,12 +37,21 @@ async function getActivityLogsForLead(leadId) {
 /**
  * Get the most recent global activity logs across all leads.
  */
-async function getRecentGlobalActivities(limit = 10) {
+async function getRecentGlobalActivities(limit = 10, { userId, userRole } = {}) {
+  let whereClause = '';
+  const params = [limit];
+
+  if (userRole === 'agent') {
+    whereClause = 'WHERE l.assigned_to = $2';
+    params.push(userId);
+  }
+
   const sql = `
     SELECT al.*, u.name as user_name, l.name as lead_name
     FROM activity_logs al
     LEFT JOIN users u ON al.user_id = u.id
     JOIN leads l ON al.lead_id = l.id
+    ${whereClause}
     ORDER BY al.created_at DESC
     LIMIT $1
   `;

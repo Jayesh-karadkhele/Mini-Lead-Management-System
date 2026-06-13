@@ -161,11 +161,27 @@ async function getLeadActivities(req, res, next) {
   }
 }
 
+/**
+ * Get lead summary stats for dashboard dashboard.
+ */
+async function getLeadStats(req, res, next) {
+  try {
+    const stats = await leadService.getLeadStats({
+      userId: req.user.id,
+      userRole: req.user.role
+    });
+    return res.status(200).json(stats);
+  } catch (error) {
+    next(error);
+  }
+}
+
 module.exports = {
   createLead,
   listLeads,
   getLeadById,
   updateLead,
   deleteLead,
-  getLeadActivities
+  getLeadActivities,
+  getLeadStats
 };
