@@ -131,5 +131,6 @@ router.post('/logout', authController.logout);
  *         description: Invalid or expired token
  */
 router.get('/me', authenticateToken, authController.me);
+router.get('/agents', authenticateToken, authorizeRoles('admin', 'manager'), authController.getAgents);
 
 module.exports = router;

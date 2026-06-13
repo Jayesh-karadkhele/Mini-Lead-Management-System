@@ -120,10 +120,25 @@ async function me(req, res) {
   return res.status(200).json({ user: req.user });
 }
 
+/**
+ * Get all active agents (Admin & Manager only).
+ */
+async function getAgents(req, res, next) {
+  try {
+    const result = await require('../config/db').query(
+      "SELECT id, name, email FROM users WHERE role = 'agent' ORDER BY name ASC"
+    );
+    return res.status(200).json(result.rows);
+  } catch (error) {
+    next(error);
+  }
+}
+
 module.exports = {
   register,
   login,
   refresh,
   logout,
-  me
+  me,
+  getAgents
 };
