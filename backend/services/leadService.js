@@ -57,6 +57,10 @@ async function createLead({ name, email, phone, source, status = 'new', assigned
     });
   }
 
+  // Trigger lead enrichment asynchronously in the background
+  const { enrichLead } = require('./enrichmentService');
+  enrichLead(lead.id).catch(err => console.error('Enrichment background task failed:', err.message));
+
   return lead;
 }
 
