@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  # Optional: Local PostgreSQL service
+  db:
+    image: postgres:15-alpine
+    container_name: lead_mgmt_db
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgrespassword
+      POSTGRES_DB: lead_management
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  # Optional: pgAdmin database management GUI
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: lead_mgmt_pgadmin
+    restart: always
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@company.com
+      PGADMIN_DEFAULT_PASSWORD: adminpassword
+    ports:
+      - "5050:80"
+    depends_on:
+      - db
+
+  # Optional: Backend application service
+  backend:
+    build: ./backend
+    container_name: lead_mgmt_backend
+    restart: always
+    ports:
+      - "5000:5000"
+    environment:
+      - NODE_ENV=production
+      - PORT=5000
+      - DATABASE_URL=postgresql://postgres:postgrespassword@db:5432/lead_management
+      - JWT_ACCESS_SECRET=docker_secret_access_key_998877
+      - JWT_REFRESH_SECRET=docker_secret_refresh_key_778899
+    depends_on:
+      - db
+
+volumes:
+  postgres_data:
