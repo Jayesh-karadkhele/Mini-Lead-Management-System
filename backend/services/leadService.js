@@ -1,4 +1,5 @@
 const { query } = require('../config/db');
+const { createActivityLog } = require('./activityService');
 
 /**
  * Find the active agent with the least number of assigned leads.
@@ -20,7 +21,7 @@ async function getLeastLoadedAgent() {
 /**
  * Create a new lead.
  */
-async function createLead({ name, email, phone, source, status = 'new', assigned_to = null, notes = '', creatorRole }) {
+async function createLead({ name, email, phone, source, status = 'new', assigned_to = null, notes = '', creatorId, creatorRole }) {
   let finalAssignedTo = assigned_to;
 
   // Auto-assign to least-loaded agent if no specific assignment is provided
@@ -34,7 +35,29 @@ async function createLead({ name, email, phone, source, status = 'new', assigned
     RETURNING *
   `;
   const result = await query(sql, [name, email, phone, source, status, finalAssignedTo, notes]);
-  return result.rows[0];
+  const lead = result.rows[0];
+
+  // Log lead creation activity
+  await createActivityLog({
+    leadId: lead.id,
+    userId: creatorId,
+    activityType: 'lead_created',
+    details: `Lead '${lead.name}' was created.`
+  });
+
+  // Log lead assignment activity if assigned
+  if (lead.assigned_to) {
+    const agentResult = await query('SELECT name FROM users WHERE id = $1', [lead.assigned_to]);
+    const agentName = agentResult.rows[0] ? agentResult.rows[0].name : `Agent ID ${lead.assigned_to}`;
+    await createActivityLog({
+      leadId: lead.id,
+      userId: creatorId,
+      activityType: 'lead_assigned',
+      details: `Lead was assigned to ${agentName}.`
+    });
+  }
+
+  return lead;
 }
 
 /**
@@ -157,7 +180,12 @@ async function listLeads({
 /**
  * Update a lead.
  */
-async function updateLead(id, updateFields) {
+async function updateLead(id, updateFields, updaterId) {
+  // Fetch current lead to compare updates
+  const currentResult = await query('SELECT * FROM leads WHERE id = $1', [id]);
+  const currentLead = currentResult.rows[0];
+  if (!currentLead) return null;
+
   const allowedUpdates = ['name', 'email', 'phone', 'source', 'status', 'assigned_to', 'notes'];
   
   const setClauses = [];
@@ -173,7 +201,7 @@ async function updateLead(id, updateFields) {
   }
 
   if (setClauses.length === 0) {
-    return null;
+    return currentLead;
   }
 
   setClauses.push(`updated_at = CURRENT_TIMESTAMP`);
@@ -185,7 +213,57 @@ async function updateLead(id, updateFields) {
     RETURNING *
   `;
   const result = await query(sql, params);
-  return result.rows[0] || null;
+  const updatedLead = result.rows[0];
+
+  if (updatedLead) {
+    // Log status changed
+    if (currentLead.status !== updatedLead.status) {
+      await createActivityLog({
+        leadId: updatedLead.id,
+        userId: updaterId,
+        activityType: 'status_changed',
+        details: `Status changed from '${currentLead.status}' to '${updatedLead.status}'.`
+      });
+    }
+
+    // Log lead assigned/reassigned
+    if (currentLead.assigned_to !== updatedLead.assigned_to) {
+      if (updatedLead.assigned_to) {
+        const agentResult = await query('SELECT name FROM users WHERE id = $1', [updatedLead.assigned_to]);
+        const agentName = agentResult.rows[0] ? agentResult.rows[0].name : `Agent ID ${updatedLead.assigned_to}`;
+        await createActivityLog({
+          leadId: updatedLead.id,
+          userId: updaterId,
+          activityType: 'lead_assigned',
+          details: `Lead assigned to ${agentName}.`
+        });
+      } else {
+        await createActivityLog({
+          leadId: updatedLead.id,
+          userId: updaterId,
+          activityType: 'lead_assigned',
+          details: `Lead was unassigned.`
+        });
+      }
+    }
+
+    // Log general update
+    if (currentLead.status === updatedLead.status && currentLead.assigned_to === updatedLead.assigned_to) {
+      const changedFields = Object.keys(updateFields).filter(
+        key => allowedUpdates.includes(key) && currentLead[key] !== updatedLead[key]
+      );
+      if (changedFields.length > 0) {
+        await createActivityLog({
+          leadId: updatedLead.id,
+          userId: updaterId,
+          activityType: 'lead_updated',
+          details: `Updated fields: ${changedFields.join(', ')}.`
+        });
+      }
+    }
+  }
+
+  return updatedLead;
 }
 
 /**

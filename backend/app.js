@@ -6,6 +6,7 @@ const auditMiddleware = require('./middleware/auditMiddleware');
 const errorHandler = require('./middleware/errorHandler');
 const authRoutes = require('./routes/authRoutes');
 const leadRoutes = require('./routes/leadRoutes');
+const activityRoutes = require('./routes/activityRoutes');
 
 const app = express();
 
@@ -16,6 +17,7 @@ app.use(auditMiddleware);
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/leads', leadRoutes);
+app.use('/api/activities', activityRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

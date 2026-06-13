@@ -1,4 +1,5 @@
 const leadService = require('../services/leadService');
+const activityService = require('../services/activityService');
 
 /**
  * Create a new lead (Admin & Manager only).
@@ -19,6 +20,7 @@ async function createLead(req, res, next) {
       status,
       assigned_to,
       notes,
+      creatorId: req.user.id,
       creatorRole: req.user.role
     });
 
@@ -96,7 +98,6 @@ async function updateLead(req, res, next) {
       return res.status(404).json({ error: 'Lead not found or access denied' });
     }
 
-    // Role restrictions on updates
     const updates = { ...req.body };
 
     // Agents cannot reassign leads
@@ -104,7 +105,7 @@ async function updateLead(req, res, next) {
       delete updates.assigned_to;
     }
 
-    const updatedLead = await leadService.updateLead(leadId, updates);
+    const updatedLead = await leadService.updateLead(leadId, updates, req.user.id);
     return res.status(200).json({
       message: 'Lead updated successfully',
       lead: updatedLead
@@ -135,10 +136,36 @@ async function deleteLead(req, res, next) {
   }
 }
 
+/**
+ * Get activity logs for a specific lead.
+ */
+async function getLeadActivities(req, res, next) {
+  try {
+    const { id } = req.params;
+    const leadId = parseInt(id, 10);
+
+    // Verify lead access
+    const lead = await leadService.getLeadById(leadId, {
+      userId: req.user.id,
+      userRole: req.user.role
+    });
+
+    if (!lead) {
+      return res.status(404).json({ error: 'Lead not found or access denied' });
+    }
+
+    const logs = await activityService.getActivityLogsForLead(leadId);
+    return res.status(200).json(logs);
+  } catch (error) {
+    next(error);
+  }
+}
+
 module.exports = {
   createLead,
   listLeads,
   getLeadById,
   updateLead,
-  deleteLead
+  deleteLead,
+  getLeadActivities
 };
