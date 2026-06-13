@@ -1,22 +1,60 @@
 import React from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider } from './context/AuthContext';
+import ProtectedRoute from './components/ProtectedRoute';
+import Layout from './components/Layout';
+import LoginPage from './pages/LoginPage';
+import DashboardPage from './pages/DashboardPage';
+import LeadsListPage from './pages/LeadsListPage';
+import LeadCreatePage from './pages/LeadCreatePage';
+import LeadDetailsPage from './pages/LeadDetailsPage';
+import LeadEditPage from './pages/LeadEditPage';
 
 function App() {
   return (
-    <div className="container py-5 text-center" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-      <div className="card card-premium p-5 max-w-md mx-auto" style={{ maxWidth: '500px', margin: '0 auto' }}>
-        <h1 className="fw-bold mb-3" style={{ background: 'var(--brand-gradient)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-          Mini Lead Management System
-        </h1>
-        <p className="text-secondary mb-4">
-          Frontend workspace has been successfully initialized with Vite, React, Bootstrap, and Axios.
-        </p>
-        <div className="d-flex justify-content-center gap-2">
-          <span className="badge bg-primary px-3 py-2">Vite React</span>
-          <span className="badge bg-success px-3 py-2">Bootstrap 5</span>
-          <span className="badge bg-info px-3 py-2">Axios Client</span>
-        </div>
-      </div>
-    </div>
+    <AuthProvider>
+      <BrowserRouter>
+        <Routes>
+          {/* Public Routes */}
+          <Route path="/login" element={<LoginPage />} />
+
+          {/* Protected Dashboard/App Routes */}
+          <Route
+            path="/"
+            element={
+              <ProtectedRoute>
+                <Layout />
+              </ProtectedRoute>
+            }
+          >
+            {/* Dashboard Default */}
+            <Route index element={<DashboardPage />} />
+
+            {/* Leads Listing */}
+            <Route path="leads" element={<LeadsListPage />} />
+
+            {/* Create Lead (Managers/Admins only) */}
+            <Route
+              path="leads/create"
+              element={
+                <ProtectedRoute allowedRoles={['admin', 'manager']}>
+                  <LeadCreatePage />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Lead Details */}
+            <Route path="leads/:id" element={<LeadDetailsPage />} />
+
+            {/* Edit Lead */}
+            <Route path="leads/:id/edit" element={<LeadEditPage />} />
+          </Route>
+
+          {/* Fallback Catch-all */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
   );
 }
 
