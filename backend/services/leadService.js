@@ -1,15 +1,39 @@
 const { query } = require('../config/db');
 
 /**
+ * Find the active agent with the least number of assigned leads.
+ */
+async function getLeastLoadedAgent() {
+  const sql = `
+    SELECT u.id
+    FROM users u
+    LEFT JOIN leads l ON u.id = l.assigned_to AND l.status NOT IN ('won', 'lost')
+    WHERE u.role = 'agent'
+    GROUP BY u.id
+    ORDER BY COUNT(l.id) ASC, u.id ASC
+    LIMIT 1
+  `;
+  const result = await query(sql);
+  return result.rows[0] ? result.rows[0].id : null;
+}
+
+/**
  * Create a new lead.
  */
-async function createLead({ name, email, phone, source, status = 'new', assigned_to = null, notes = '' }) {
+async function createLead({ name, email, phone, source, status = 'new', assigned_to = null, notes = '', creatorRole }) {
+  let finalAssignedTo = assigned_to;
+
+  // Auto-assign to least-loaded agent if no specific assignment is provided
+  if (!finalAssignedTo && (creatorRole === 'manager' || creatorRole === 'admin')) {
+    finalAssignedTo = await getLeastLoadedAgent();
+  }
+
   const sql = `
     INSERT INTO leads (name, email, phone, source, status, assigned_to, notes, updated_at)
     VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP)
     RETURNING *
   `;
-  const result = await query(sql, [name, email, phone, source, status, assigned_to, notes]);
+  const result = await query(sql, [name, email, phone, source, status, finalAssignedTo, notes]);
   return result.rows[0];
 }
 

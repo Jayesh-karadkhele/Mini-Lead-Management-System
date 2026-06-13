@@ -18,7 +18,8 @@ async function createLead(req, res, next) {
       source,
       status,
       assigned_to,
-      notes
+      notes,
+      creatorRole: req.user.role
     });
 
     return res.status(201).json({
