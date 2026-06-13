@@ -155,3 +155,45 @@ You can log in to the application dashboard using these seeded user accounts:
 
 ### 5. Rate Limiting Middleware
 - Restricts authentication attempts to 15 requests per 15 minutes per IP to prevent brute-force attacks, and general CRUD routes to 100 requests per 15 minutes.
+
+---
+
+## API Documentation
+
+All API requests expect JSON bodies and return JSON responses. Access tokens must be passed in the `Authorization` header as `Bearer <access_token>`.
+
+### Authentication Endpoints
+- `POST /api/auth/register`: Register a new user. Body: `{ name, email, password, role }`.
+- `POST /api/auth/login`: Authenticate credentials. Returns: `{ user, accessToken, refreshToken }`. Body: `{ email, password }`.
+- `POST /api/auth/refresh`: Rotate access token. Returns: `{ accessToken, refreshToken }`. Body: `{ refreshToken }`.
+- `POST /api/auth/logout`: Revoke active refresh token. Body: `{ refreshToken }`.
+- `GET /api/auth/me`: Get current authenticated user object. (Protected)
+- `GET /api/auth/agents`: Get list of active agents for assignment dropdowns. (Protected, Admin & Manager only)
+
+### Lead Management Endpoints
+- `POST /api/leads`: Create a new lead. Auto-assigns if assignee omitted. Body: `{ name, email, phone, source, status, assigned_to, notes }`. (Protected, Admin & Manager only)
+- `GET /api/leads`: List leads with page, limit, search, status, source, sortBy, sortOrder query params. (Protected. Agents only see their assigned leads)
+- `GET /api/leads/stats`: Retrieve pipeline summary metrics and agent workloads. (Protected)
+- `GET /api/leads/:id`: Get lead details by ID. (Protected)
+- `PUT /api/leads/:id`: Update lead. Reassignment is blocked if client is an Agent. Body: `{ name, email, phone, source, status, assigned_to, notes }`. (Protected)
+- `DELETE /api/leads/:id`: Delete lead. (Protected, Admin & Manager only)
+
+### Activity Log Endpoints
+- `GET /api/activities`: Fetch recent global activities. (Protected)
+- `GET /api/leads/:id/activities`: Fetch activities for a specific lead. (Protected)
+
+---
+
+## Assumptions Made
+1. **Role Access Bounds**: Agents are strictly receivers of leads. They cannot create leads, delete leads, or reassign leads to other agents. They can only edit the status and notes of leads already assigned to them.
+2. **Workload Definition**: "Active load" for the least-loaded agent calculation counts leads assigned to the agent that are *not* in a final state (`won` or `lost`). This ensures workload metric represents current open opportunities.
+3. **Database Seeding**: Running the seed script resets database tables and seeds standard accounts (1 Admin, 1 Manager, 3 Agents) along with 5 dummy leads to provide immediate dashboard metrics.
+
+---
+
+## Tradeoffs Considered
+1. **Raw pg Pool vs. ORM**: Used raw PostgreSQL queries with the `pg` client instead of Sequelize or Prisma. This avoids ORM overhead, results in lighter package bundles, and allows precise control over execution plans and query performance (especially for dynamic filters and the workload aggregation query).
+2. **Stateful Refresh Tokens vs. Purely Stateless JWTs**: Stored refresh tokens in a database table. While purely stateless JWTs don't require database lookups, they cannot be revoked. Stateful refresh tokens allow instant session invalidation on logout or security breaches.
+3. **In-Memory Rate Limiting vs. Redis**: Implemented standard IP rate limiting in memory using `express-rate-limit`. A Redis store is preferred in multi-server/load-balanced environments, but for this application, an in-memory store keeps dependencies low and setup straightforward.
+4. **Non-blocking enrichment vs. Message Queues**: Spawns a background promise for the RandomUser API enrichment on lead creation instead of a queue system (like BullMQ + Redis). Background promises keep dependencies lightweight while keeping HTTP request cycles extremely fast.
+
