@@ -5,7 +5,29 @@ const { authenticateToken, authorizeRoles } = require('../middleware/authMiddlew
 
 router.use(authenticateToken);
 
-// Only Admin and Manager can fetch recent global activities
+/**
+ * @openapi
+ * /api/activities:
+ *   get:
+ *     summary: Retrieve recent global activity logs across all leads (Admin & Manager only)
+ *     tags: [Activities]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Number of log rows to return
+ *     responses:
+ *       200:
+ *         description: A list of the most recent activity logs across all leads
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden (Agents cannot view global activities)
+ */
 router.get('/', authorizeRoles('admin', 'manager'), activityController.getRecentActivities);
 
 module.exports = router;
